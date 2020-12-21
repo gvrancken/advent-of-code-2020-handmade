@@ -11,11 +11,7 @@
         *(int *)0 = 0;     \
     }
 
-#define Min(a, b) (a < b) ? a : b
-#define Max(a, b) (a > b) ? a : b
-
 #define u64 uint64_t
-
 
 typedef struct String
 {
@@ -213,36 +209,42 @@ int main()
 
     qsort(adapters, adapterCount, sizeof(*adapters), comp);
 
-    u64 numPathsToElement[1024] = {};
-
-    // The numbers we can reach from the start get a 1 from themselves, on top of the rest of the logic.
-    numPathsToElement[0] = 1;
-    numPathsToElement[1] = 1;
-    numPathsToElement[2] = 1;
-
+    u64 *arr = (u64 *)calloc(adapterCount, sizeof(u64));
+    // int totalPaths = CountPaths(adapters, adapterCount, 15, adapterCount-1, arr);
+    
     for (int i = 0; i < adapterCount; i++) {
 
         int val = adapters[i]; 
-        // printf("[%d] %d\n", i, val);
+        printf("[%d] %d\n", i, val);
+        if (i == 0) {
+            if (val <= 3) arr[i] = 1;
+        } else if (i == 1) {
+            if (val <= 3) arr[i]++;
+            if (val - arr[0] <= 3) arr[i] += arr[0];
+        } else if (i == 2) {
+            if (val <= 3) arr[i]++;
+            if (val - arr[1] <= 3) arr[i] += arr[1];
+            if (val - arr[0] <= 3) arr[i] += arr[0];
+        } else {
 
-        // Look three back to see if any of those would get to this node (we are sorted).
-        // Make sure we don't go past the first element. 
-        for (int j = Max(0, i-3); j < i; j++) {
-            int val2 = adapters[j];
-            int diff = val - val2;
-            if (diff <= 3) {
-                numPathsToElement[i] += numPathsToElement[j];
+            for (int j = i-3; j < i; j++) {
+                int val2 = adapters[j];
+                int diff = val - val2;
+                if (diff <= 3) {
+                    arr[i] += arr[j];
+                }
             }
         }
-        
     }
 
     printf("----------\n");
     int totalPaths = 0;
     for (int i = 0; i < adapterCount; i++) {
-        printf("[%d] a: %d, numPathsToElement: %lld\n", i, adapters[i], numPathsToElement[i]);
+        printf("[%d] a: %d, arr: %lld\n", i, adapters[i], arr[i]);
+        totalPaths += arr[i];
     }
 
-    printf("\nAnswer: %lld.\n", numPathsToElement[adapterCount-1]);
+
+    printf("answer: %d.\n", totalPaths);
 
 }
