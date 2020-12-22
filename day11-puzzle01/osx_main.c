@@ -11,6 +11,9 @@
         *(int *)0 = 0;     \
     }
 
+#define Min(a, b) (a < b) ? a : b
+#define Max(a, b) (a > b) ? a : b
+
 #define u64 uint64_t
 
 typedef struct String
@@ -18,6 +21,12 @@ typedef struct String
     char *data;
     int length;
 } String;
+
+typedef struct Pos
+{
+    int col;
+    int row;
+} Pos;
 
 static String
 ReadFileToHeap(char *Filename)
@@ -131,37 +140,44 @@ static char *CString(String s)
     return result;
 }
 
-typedef struct StringArray {
+typedef struct StringArray
+{
     String str[4096];
     int count;
 } StringArray;
 
-typedef struct arr {
+typedef struct arr
+{
     void *data;
     int length;
 } arr;
 
-static int CountPaths(int *adapters, int adapterCount, int val, int index, int *arr) {
-    
-    if (val == 1) return 1;
-    if (val == 2) return 2;
-    if (val == 3) return 3;
-    
+static int CountPaths(int *adapters, int adapterCount, int val, int index, int *arr)
+{
+
+    if (val == 1)
+        return 1;
+    if (val == 2)
+        return 2;
+    if (val == 3)
+        return 3;
+
     // caching
-    if (arr[val-1] > 0) {
-        return arr[val-1];
+    if (arr[val - 1] > 0)
+    {
+        return arr[val - 1];
     }
 
-    arr[val-1] = CountPaths(adapters, adapterCount, val-1, index, arr) + 
-                 CountPaths(adapters, adapterCount, val-2, index, arr) + 
-                 CountPaths(adapters, adapterCount, val-3, index, arr);
-    
-    return arr[val-1];
-}
-    
+    arr[val - 1] = CountPaths(adapters, adapterCount, val - 1, index, arr) +
+                   CountPaths(adapters, adapterCount, val - 2, index, arr) +
+                   CountPaths(adapters, adapterCount, val - 3, index, arr);
 
-static void SplitString(String *input, StringArray *lines) {
-    
+    return arr[val - 1];
+}
+
+static void SplitString(String *input, StringArray *lines)
+{
+
     int lineIndex = lines->count++;
     lines->str[lineIndex].data = input->data;
 
@@ -179,72 +195,146 @@ static void SplitString(String *input, StringArray *lines) {
     lines->str[lineIndex].length = input->data + input->length - lines->str[lineIndex].data;
 }
 
-int comp (const void *a, const void *b) 
+int comp(const void *a, const void *b)
 {
     int f = *(int *)a;
     int s = *(int *)b;
-    if (f < s) return -1;
-    if (f > s) return 1;
+    if (f < s)
+        return -1;
+    if (f > s)
+        return 1;
     return 0;
+}
+
+static inline bool IsValid(String *str, Pos P, int pitch)
+{
+    return (P.col >= 0 && P.col < pitch && P.row >= 0 && P.row <= (str->length / pitch) - 1);
+}
+
+static inline bool IsOccupied(String *str, Pos P, int pitch)
+{
+    int index = P.row * pitch + P.col;
+    return (str->data[index] == '#');
+}
+
+static int CountNeighborsOccupied(String *str, Pos P, int pitch)
+{
+    int numOccupied = 0;
+
+    Pos E = {P.col + 1, P.row};
+    Pos SE = {P.col + 1, P.row + 1};
+    Pos S = {P.col, P.row + 1};
+    Pos SW = {P.col - 1, P.row + 1};
+    Pos W = {P.col - 1, P.row};
+    Pos NW = {P.col - 1, P.row - 1};
+    Pos N = {P.col, P.row - 1};
+    Pos NE = {P.col + 1, P.row - 1};
+
+    if (IsValid(str, E, pitch) && IsOccupied(str, E, pitch))
+        numOccupied++;
+    if (IsValid(str, SE, pitch) && IsOccupied(str, SE, pitch))
+        numOccupied++;
+    if (IsValid(str, S, pitch) && IsOccupied(str, S, pitch))
+        numOccupied++;
+    if (IsValid(str, SW, pitch) && IsOccupied(str, SW, pitch))
+        numOccupied++;
+    if (IsValid(str, W, pitch) && IsOccupied(str, W, pitch))
+        numOccupied++;
+    if (IsValid(str, NW, pitch) && IsOccupied(str, NW, pitch))
+        numOccupied++;
+    if (IsValid(str, N, pitch) && IsOccupied(str, N, pitch))
+        numOccupied++;
+    if (IsValid(str, NE, pitch) && IsOccupied(str, NE, pitch))
+        numOccupied++;
+
+    return numOccupied;
 }
 
 int main()
 {
-    String result = ReadFileToHeap("input.txt");
+    String input = ReadFileToHeap("input.txt");
 
-    StringArray lines = {};
-    SplitString(&result, &lines);
+    int pitch = -1;
+    int offset = 0;
+    for (int i = 0; i < input.length; ++i)
+    {
+        char it = input.data[i];
 
-    int adapters[1024];
-    int adapterCount = lines.count;
+        input.data[i - offset] = it;
 
-    // store in int array
-    for (int i=0; i<lines.count; ++i) {
-        char *str = CString(lines.str[i]);
-        int val = ParseInt(str);
-        // printf("%d\n", val);
-
-        adapters[i] = val;
-    }
-
-    qsort(adapters, adapterCount, sizeof(*adapters), comp);
-
-    u64 *arr = (u64 *)calloc(adapterCount, sizeof(u64));
-    // int totalPaths = CountPaths(adapters, adapterCount, 15, adapterCount-1, arr);
-    
-    for (int i = 0; i < adapterCount; i++) {
-
-        int val = adapters[i]; 
-        printf("[%d] %d\n", i, val);
-        if (i == 0) {
-            if (val <= 3) arr[i] = 1;
-        } else if (i == 1) {
-            if (val <= 3) arr[i]++;
-            if (val - arr[0] <= 3) arr[i] += arr[0];
-        } else if (i == 2) {
-            if (val <= 3) arr[i]++;
-            if (val - arr[1] <= 3) arr[i] += arr[1];
-            if (val - arr[0] <= 3) arr[i] += arr[0];
-        } else {
-
-            for (int j = i-3; j < i; j++) {
-                int val2 = adapters[j];
-                int diff = val - val2;
-                if (diff <= 3) {
-                    arr[i] += arr[j];
-                }
+        if (it == '\n')
+        {
+            if (pitch == -1)
+            {
+                pitch = i;
             }
+            offset++;
         }
     }
+    input.length -= offset;
+    printf("pitch: %d\n\n", pitch);
 
-    printf("----------\n");
-    int totalPaths = 0;
-    for (int i = 0; i < adapterCount; i++) {
-        printf("[%d] a: %d, arr: %lld\n", i, adapters[i], arr[i]);
-        totalPaths += arr[i];
+    String buffer = {};
+    buffer.data = (char *)malloc(input.length);
+    buffer.length = input.length;
+
+#if 0
+    for (int i=0; i<result.length; ++i) {
+        char it = result.data[i];
+        printf("%c", it);
+    }
+    print("\n\n");
+#endif
+
+    // NOTE(gb): we can now use a col row notation, we know that (row * pitch + col) is the index.
+    
+    int totalOccupied = 0;
+    
+    while (true)
+    {
+        bool hasChanged = false;
+        totalOccupied = 0;
+        int rowCount = input.length / pitch;
+        for (int row = 0; row < rowCount; row++)
+        {
+            for (int col = 0; col < pitch; col++)
+            {
+                int index = row * pitch + col;
+                Pos P = {col, row};
+                int numOccupied = CountNeighborsOccupied(&input, P, pitch);
+
+                if (input.data[index] == 'L' && numOccupied == 0)
+                {
+                    buffer.data[index] = '#';
+                    hasChanged = true;
+                }
+                else if (input.data[index] == '#' && numOccupied >= 4)
+                {
+                    buffer.data[index] = 'L';
+                    hasChanged = true;
+                }
+                else
+                {
+                    buffer.data[index] = input.data[index];
+                }
+
+                printf("%c", buffer.data[index]);
+                if (buffer.data[index] == '#') {
+                    totalOccupied++;
+                }
+            }
+            printf("\n");
+        }
+
+        printf("\n\n");
+
+        if (!hasChanged) break;
+        
+        // flip pointers
+        char *temp = buffer.data;
+        buffer.data = input.data;
+        input.data = temp;
     }
 
-
-    printf("answer: %d.\n", totalPaths);
-
+    printf("Answer: %d", totalOccupied);
 }

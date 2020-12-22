@@ -8,4 +8,4 @@ DISABLED_COMPILER_WARNINGS="
 -Wno-null-dereference
 "
 
-clang -g -Wall ${DISABLED_COMPILER_WARNINGS} -o osx_main osx_main.c
+clang -g -Wall -Wshadow ${DISABLED_COMPILER_WARNINGS} -o osx_main osx_main.c
