@@ -211,12 +211,6 @@ static inline bool IsValid(String *str, Pos P, int pitch)
     return (P.col >= 0 && P.col < pitch && P.row >= 0 && P.row <= (str->length / pitch) - 1);
 }
 
-static inline bool IsOccupied(String *str, Pos P, int pitch)
-{
-    int index = P.row * pitch + P.col;
-    return (str->data[index] == '#');
-}
-
 static bool CheckSquare(String *str, Pos P, Pos dP, int pitch)
 {
     Pos newPos = {P.col + dP.col, P.row + dP.row};
