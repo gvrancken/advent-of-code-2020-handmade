@@ -24,23 +24,19 @@ typedef struct String
     int length;
 } String;
 
-typedef struct v2
-{
-    int x;
-    int y;
-} v2;
-
-static inline v2 V2(int a, int b)
-{
-    v2 result = {a, b};
-    return result;
-}
-
 typedef struct StringArray
 {
     String str[4096];
     int count;
 } StringArray;
+
+typedef struct HashedCommand
+{
+    u64 value;
+    u64 address;
+    struct HashedCommand *next;
+    bool isInit;
+} HashedCommand;
 
 static String
 ReadFileToHeap(char *Filename)
@@ -199,15 +195,6 @@ static void SplitString(String *input, StringArray *lines, char splitChar)
     lines->str[lineIndex].length = input->data + input->length - lines->str[lineIndex].data;
 }
 
-typedef struct HashedCommand
-{
-    u64 value;
-    u64 address;
-    struct HashedCommand *next;
-    bool isInit;
-} HashedCommand;
-
-
 int comp(const void *a, const void *b)
 {
     HashedCommand *f = (HashedCommand *)a;
@@ -219,75 +206,53 @@ int comp(const void *a, const void *b)
     return 0;
 }
 
-static HashedCommand *
-GetFromHash(HashedCommand *table, int tableSize, u64 address)
-{
-    int hash = address & (tableSize - 1);
-    HashedCommand *itemInList = table + hash;
-
-    if (itemInList->address == address)
-    {
-        return itemInList;
-    }
-    else if (!itemInList->isInit)
-    {
-        HashedCommand com = {};
-        com.address = address;
-        com.isInit = true;
-        *itemInList = com;
-        return itemInList;
-    }
-    else
-    {
-        while (itemInList->next)
-        {
-            // printf("<--- Collision! [%d] [%llu]\n", hash, address);
-            itemInList = itemInList->next;
-            if (itemInList->address == address)
-            {
-                // printf("<--- Found ON HEAP [%d] [%p]\n", hash, itemInList);
-                return itemInList;
-            }
-        }
-
-        Assert("we have not found this!");
-        return 0;
-    }
-}
-
 static void StoreInHash(HashedCommand *table, int tableSize, HashedCommand item)
 {
-    // hash the position, since we want to search an entity based on position
-    int hashSlot = item.address & (tableSize - 1);
+    // NOTE(gb): Obligatory Use Better Hash Function!
+    int hashSlot = item.address % tableSize;
 
-    // since there is always an entity in the slot (and not a null pointer), we need to check a value to see if it's an empty entity. In this example we assign a type ENTITY_UNINITIALISED to check for this.
+    // since there is always an entity in the slot (and not a null pointer), we need to check a value to see if it's an empty entity.
     HashedCommand *itemInList = table + hashSlot;
-    if (!itemInList->isInit) {
+    if (!itemInList->isInit)
+    {
         // array pos is empty, just store
         item.isInit = true;
         *itemInList = item;
-    } else {
-        // hash collision! 
-        
-        // traverse the next pointers until we find an empty spot
-        while (itemInList->next) {
-            itemInList = itemInList->next;
+    }
+    else
+    {   
+        if (itemInList->address == item.address)
+        {
+            itemInList->value = item.value;
+            return;
         }
-        
-        // NOTE(gb): we allocate new heap memory here. 
+        // hash collision!
+
+        // traverse the next pointers until we find an empty spot
+        while (itemInList->next)
+        {
+            itemInList = itemInList->next;
+            if (itemInList->address == item.address)
+            {
+                itemInList->value = item.value;
+                return;
+            }
+        }
+
+        // NOTE(gb): we allocate new heap memory here.
         // we usually will point to our pre-allocated memory here and
         // increase its pointer
         HashedCommand *heapItem = (HashedCommand *)malloc(sizeof(HashedCommand));
         item.isInit = true;
         *heapItem = item;
         // assign it to our hash table:
-        itemInList->next = heapItem; 
+        itemInList->next = heapItem;
     }
-
 }
 
 int main()
 {
+
     String input = ReadFileToHeap("input.txt");
 
     // Time
@@ -371,47 +336,37 @@ int main()
             StoreInHash(hashTable, ArrayCount(hashTable), hashCom);
 
             memory[address] = value;
-
         }
-
     }
-
-
-    printf("\n");
-
-    // qsort(hashTable, ArrayCount(hashTable), ArrayCount(hashTable) * sizeof(HashedCommand), comp);
 
     u64 total = 0;
 
-    for (u64 i = 0; i < memorySize; ++i) {
+#if 0
+    total = 0;
+    for (u64 i = 0; i < memorySize; ++i)
+    {
         u64 *com = memory + i;
         // printf("[%llu] %llu\n", i, *com);
         total += *com;
     }
+    printf("Answer in array: %llu.\n", total);
+#endif
 
-#if 0
+#if 1
+    total = 0;
     for (int i = 0; i < ArrayCount(hashTable); ++i)
     {
         HashedCommand *com = hashTable + i;
 
-        // printf("mem[%d] = ", i);
         while (com)
         {
-            if (!com->isInit) break;
-            printf(" ");
-
             total += com->value;
-            printf("[%llu] %llu\n", com->address, com->value);
             com = com->next;
         }
-            
-        
-        // printf("total is now: %llu\n", total);
     }
+
+    printf("Answer in hashtable: %llu.\n", total);
 #endif
-
-    printf("Answer: %llu.\n", total);
-
 
     // Time
     u64 _endTime = mach_absolute_time();
