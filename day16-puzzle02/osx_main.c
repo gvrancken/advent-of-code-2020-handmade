@@ -229,24 +229,7 @@ typedef struct Ticket
     int valueCount;
 } Ticket;
 
-void removeTicket(Ticket *arr, int len, int index)
-{
-    for (int i = index; i < len - 1; i++)
-    {
-        arr[i] = arr[i + 1];
-    }
-}
-
-void removeCol(int *arr, int *len, int index)
-{
-    for (int i = index; i < (*len) - 1; i++)
-    {
-        arr[i] = arr[i + 1];
-    }
-    (*len)--;
-}
-
-void removeCat(Category *arr, int *len, int index)
+void removeTicket(Ticket *arr, int *len, int index)
 {
     for (int i = index; i < (*len) - 1; i++)
     {
@@ -366,8 +349,7 @@ int main()
             }
             if (!valid)
             {
-                removeTicket(tickets, ticketCount, ticketIndex);
-                ticketCount--;
+                removeTicket(tickets, &ticketCount, ticketIndex);
             }
         }
     }
