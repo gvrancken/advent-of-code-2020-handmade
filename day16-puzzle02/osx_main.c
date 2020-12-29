@@ -374,9 +374,9 @@ int main()
 
     // part 2 match categories and cols
     int usedCols[64] = {};
+    int matches = 0;
 
-    int tries = 20;
-    while (tries--)
+    while (true)
     {
         for (int catIndex = 0; catIndex < categoryCount; catIndex++)
         {
@@ -415,47 +415,26 @@ int main()
                     cat->validCols[cat->validColCount++] = col;
                 }
             }
-        }
-
-        for (int catIndex = 0; catIndex < categoryCount; catIndex++)
-        {
-            Category *cat = categories + catIndex;
-
-#if 0
-            printf("cat: %d \n", catIndex);
-            for (int n=0; n < cat->validColCount; n++) {
-                printf("   col: %d\n", cat->validCols[n]);
-            }
-#endif
 
             if (cat->validColCount == 1)
             {
                 // printf("cat: %s => col: %d.\n", CString(cat->name), cat->validCols[0]);
                 usedCols[cat->validCols[0]] = 1;
+                matches++;
             }
+        }
+
+        if (matches == categoryCount) {
+            break;
         }
     }
 
-    // printf("-----------------\n");
-
     u64 answer = 1;
-
-    for (int catIndex = 0; catIndex < categoryCount; catIndex++)
+    for (int catIndex = 0; catIndex < 6; catIndex++)
     {
         Category *cat = categories + catIndex;
-        
-        if (cat->validColCount == 1)
-            {
-                // printf("cat: %s => col: %d.\n", CString(cat->name), cat->validCols[0]);
-                usedCols[cat->validCols[0]] = 1;
-            }
-
-        if (catIndex < 6)
-        {
-            int col = cat->validCols[0];
-            // printf("col %d on my ticket has value: %d.\n", col, tickets[0].values[col]);
-            answer *= tickets[0].values[col];
-        }
+        int col = cat->validCols[0];
+        answer *= tickets[0].values[col];
     }
 
     printf("Answer: %lld.\n", answer);
