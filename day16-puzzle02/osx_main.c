@@ -30,17 +30,19 @@ typedef struct StringArray
     int count;
 } StringArray;
 
-
-typedef struct Range {
+typedef struct Range
+{
     int min;
     int max;
 } Range;
 
-typedef struct Category {
+typedef struct Category
+{
+    String name;
     Range ranges[2];
+    int validCols[64];
+    int validColCount;
 } Category;
-
-
 
 static String
 ReadFileToHeap(char *Filename)
@@ -54,7 +56,8 @@ ReadFileToHeap(char *Filename)
 
     fseek(fileHandle, 0, SEEK_END);
     size_t fileSize = ftell(fileHandle);
-    if (!fileSize) {
+    if (!fileSize)
+    {
         Assert("File not found.");
         return result;
     }
@@ -153,7 +156,8 @@ ParseInt(String *str, int len)
 {
     int result = 0;
 
-    if (len > 0) {
+    if (len > 0)
+    {
         for (int i = 0; i < len; ++i)
         {
             char number = str->data[i];
@@ -163,14 +167,17 @@ ParseInt(String *str, int len)
                 result += number - '0';
             }
         }
-    } else {
-        for (int i = 0;; ++i) {
+    }
+    else
+    {
+        for (int i = 0;; ++i)
+        {
             char number = str->data[i];
-            if (!IsNumber(number)) break;
+            if (!IsNumber(number))
+                break;
             result *= 10;
             result += number - '0';
         }
-
     }
 
     return result;
@@ -190,7 +197,6 @@ CString(String s)
 
     return result;
 }
-
 
 static void SplitString(String *input, StringArray *lines, char splitChar)
 {
@@ -217,9 +223,37 @@ int comp(const void *a, const void *b)
     return 0;
 }
 
-typedef struct Ticket {
+typedef struct Ticket
+{
     int values[64];
+    int valueCount;
 } Ticket;
+
+void removeTicket(Ticket *arr, int len, int index)
+{
+    for (int i = index; i < len - 1; i++)
+    {
+        arr[i] = arr[i + 1];
+    }
+}
+
+void removeCol(int *arr, int *len, int index)
+{
+    for (int i = index; i < (*len) - 1; i++)
+    {
+        arr[i] = arr[i + 1];
+    }
+    (*len)--;
+}
+
+void removeCat(Category *arr, int *len, int index)
+{
+    for (int i = index; i < (*len) - 1; i++)
+    {
+        arr[i] = arr[i + 1];
+    }
+    (*len)--;
+}
 
 int main()
 {
@@ -236,24 +270,30 @@ int main()
     StringArray lines = {};
     SplitString(&input, &lines, '\n');
 
-    Category categories[64];
+    Category categories[64] = {};
     int categoryCount = 0;
-    
-    int i=0;
-    for (; i < lines.count; i++) {
+
+    int i = 0;
+    for (; i < lines.count; i++)
+    {
         String *line = lines.str + i;
 
-        if (line->length == 0) break; // end of categories
+        if (line->length == 0)
+            break; // end of categories
 
         Category *category = categories + categoryCount++;
 
         int len = 0;
-        while (true) {
+        while (true)
+        {
             char ch = line->data[len++];
-            if (ch == ':') break;
+            if (ch == ':')
+                break;
         }
+        String catName = {line->data, len - 1};
+        category->name = catName;
 
-        String catVal = {line->data + len+1, line->length - (len+1)};
+        String catVal = {line->data + len + 1, line->length - (len + 1)};
 
         Range ranges[2] = {};
 
@@ -262,30 +302,31 @@ int main()
         // NOTE(gb) skip the word 'or'
         rangesStr.str[1] = rangesStr.str[2];
 
-
-        for (int n=0; n<2; n++) {
+        for (int n = 0; n < 2; n++)
+        {
             StringArray minMax = {};
             SplitString(rangesStr.str + n, &minMax, '-');
 
             ranges[n].min = ParseInt(minMax.str, minMax.str[0].length);
             ranges[n].max = ParseInt(minMax.str + 1, minMax.str[1].length);
-        
         }
 
         category->ranges[0] = ranges[0];
         category->ranges[1] = ranges[1];
     }
-    
-    i+=2; // skip white lines and header
 
-    Ticket tickets[256] = {};
+    i += 2;
+
+    Ticket tickets[1024] = {};
     int ticketCount = 0;
 
-    for (; i<lines.count; i++) {
+    for (; i < lines.count; i++)
+    {
         String *line = lines.str + i;
 
-        if (line->length == 0) {  // end of my ticket
-            i+=1; // skip header
+        if (line->length == 0)
+        { // end of my ticket
+            i += 1;
             continue;
         }
 
@@ -293,38 +334,131 @@ int main()
 
         StringArray valuesStr = {};
         SplitString(line, &valuesStr, ',');
-        
-        for (int n=0; n < valuesStr.count; n++) {
+
+        for (int n = 0; n < valuesStr.count; n++)
+        {
             myT->values[n] = ParseInt(valuesStr.str + n, valuesStr.str[n].length);
         }
+        myT->valueCount = categoryCount;
     }
 
-    // search other tickets
-    int total = 0;
-    for (int ticketIndex=1; ticketIndex < ticketCount; ticketIndex++) {
+    // Sigh... END OF PARSING
+
+    // seek and destroy invalid tickets
+    for (int ticketIndex = ticketCount - 1; ticketIndex >= 0; ticketIndex--)
+    {
         Ticket *ticket = tickets + ticketIndex;
 
-        
-        for (int valIndex=0; valIndex < categoryCount; valIndex++) {
+        for (int valIndex = 0; valIndex < categoryCount; valIndex++)
+        {
             int val = ticket->values[valIndex];
             bool valid = false;
-            for (int catIndex=0; catIndex<categoryCount; catIndex++) {
+            for (int catIndex = 0; catIndex < categoryCount; catIndex++)
+            {
                 Category *cat = categories + catIndex;
                 if ((val >= cat->ranges[0].min &&
-                    val <= cat->ranges[0].max) ||
+                     val <= cat->ranges[0].max) ||
                     (val >= cat->ranges[1].min &&
-                    val <= cat->ranges[1].max)) {
-                        valid = true;
-                    }
+                     val <= cat->ranges[1].max))
+                {
+                    valid = true;
+                }
             }
-            if (!valid) {
-                printf("Invalid: %d (ticket [%d])\n", val, ticketIndex);
-                total += val;
+            if (!valid)
+            {
+                removeTicket(tickets, ticketCount, ticketIndex);
+                ticketCount--;
             }
         }
-    
     }
-    printf("Answer: %d.\n", total);
+
+    // part 2 match categories and cols
+    int usedCols[64] = {};
+
+    int tries = 20;
+    while (tries--)
+    {
+        for (int catIndex = 0; catIndex < categoryCount; catIndex++)
+        {
+            Category *cat = categories + catIndex;
+            if (cat->validColCount == 1)
+                continue;
+
+            cat->validColCount = 0;
+            for (int col = 0; col < categoryCount; col++)
+            {
+                if (usedCols[col] > 0)
+                    continue;
+
+                bool isValid = true;
+                for (int ticketIndex = 0; ticketIndex < ticketCount; ticketIndex++)
+                {
+                    Ticket *ticket = tickets + ticketIndex;
+
+                    int val = ticket->values[col];
+
+                    if ((val >= cat->ranges[0].min &&
+                         val <= cat->ranges[0].max) ||
+                        (val >= cat->ranges[1].min &&
+                         val <= cat->ranges[1].max))
+                    {
+                    }
+                    else
+                    {
+                        isValid = false;
+                        break;
+                    }
+                }
+
+                if (isValid)
+                {
+                    cat->validCols[cat->validColCount++] = col;
+                }
+            }
+        }
+
+        for (int catIndex = 0; catIndex < categoryCount; catIndex++)
+        {
+            Category *cat = categories + catIndex;
+
+#if 0
+            printf("cat: %d \n", catIndex);
+            for (int n=0; n < cat->validColCount; n++) {
+                printf("   col: %d\n", cat->validCols[n]);
+            }
+#endif
+
+            if (cat->validColCount == 1)
+            {
+                // printf("cat: %s => col: %d.\n", CString(cat->name), cat->validCols[0]);
+                usedCols[cat->validCols[0]] = 1;
+            }
+        }
+    }
+
+    // printf("-----------------\n");
+
+    u64 answer = 1;
+
+    for (int catIndex = 0; catIndex < categoryCount; catIndex++)
+    {
+        Category *cat = categories + catIndex;
+        
+        if (cat->validColCount == 1)
+            {
+                // printf("cat: %s => col: %d.\n", CString(cat->name), cat->validCols[0]);
+                usedCols[cat->validCols[0]] = 1;
+            }
+
+        if (catIndex < 6)
+        {
+            int col = cat->validCols[0];
+            // printf("col %d on my ticket has value: %d.\n", col, tickets[0].values[col]);
+            answer *= tickets[0].values[col];
+        }
+    }
+
+    printf("Answer: %lld.\n", answer);
 
     // Time
     u64 timerEnd = mach_absolute_time();
