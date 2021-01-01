@@ -42,12 +42,6 @@ typedef struct StringArray
     u64 count;
 } StringArray;
 
-typedef struct v3
-{
-    int x;
-    int y;
-    int z;
-} v3;
 
 static String
 ReadFileToHeap(char *Filename)
@@ -85,123 +79,6 @@ ReadFileToHeap(char *Filename)
     return (result);
 }
 
-static bool
-CompareChars(char *a, char *b, int length)
-{
-    while (length-- > 0)
-    {
-        if (*a == 0 && *b == 0)
-            return true;
-        if (*a == 0 || *b == 0)
-            return false;
-        if (*a++ != *b++)
-            return false;
-    }
-
-    return true;
-}
-
-static bool
-CompareString(String a, String b)
-{
-    if (a.length != b.length)
-        return false;
-
-    for (int i = 0; i < a.length; i++)
-    {
-        if (a.data[i] != b.data[i])
-            return false;
-    }
-
-    return true;
-}
-
-static bool
-IsNumber(char value)
-{
-    int n = value - '0';
-    return (n >= 0 && n <= 9);
-}
-
-static bool
-IsAlphaNumeric(char value)
-{
-    return ((value >= '0' && value <= '9') ||
-            (value >= 'a' && value <= 'z'));
-}
-
-static u64
-ParseU64FromChars(char *str)
-{
-
-    u64 result = 0;
-
-    char *p = str;
-    while (*p != 0)
-    {
-        char number = *p;
-        if (IsNumber(number))
-        {
-            result *= 10;
-            result += (u64)(number - '0');
-            p++;
-        }
-        else
-        {
-            // NOTE(gb) We return the number until the non-number char
-            return result;
-        }
-    }
-
-    return result;
-}
-
-static int
-ParseInt(String *str, int len)
-{
-    int result = 0;
-
-    if (len > 0)
-    {
-        for (int i = 0; i < len; ++i)
-        {
-            char number = str->data[i];
-            if (IsNumber(number))
-            {
-                result *= 10;
-                result += number - '0';
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0;; ++i)
-        {
-            char number = str->data[i];
-            if (!IsNumber(number))
-                break;
-            result *= 10;
-            result += number - '0';
-        }
-    }
-
-    return result;
-}
-
-static char *
-CString(String s)
-{
-
-    char *result = (char *)malloc(s.length + 1);
-
-    for (int i = 0; i < s.length; i++)
-    {
-        result[i] = s.data[i];
-    }
-    result[s.length] = 0;
-
-    return result;
-}
 
 static void SplitString(String *input, StringArray *lines, char splitChar)
 {
@@ -223,18 +100,6 @@ static void SplitString(String *input, StringArray *lines, char splitChar)
     lines->str[lineIndex].length = (u64)(input->data + input->length - lines->str[lineIndex].data);
 }
 
-int comp(const void *a, const void *b)
-{
-    return 0;
-}
-
-
-
-int PosToIndex(v3 pos)
-{
-    return (pos.z + TURNS) * START_WIDTH * START_HEIGHT + (pos.y + TURNS) * START_WIDTH + (pos.x + TURNS);
-}
-
 void MarkNeighbors(int active[MAX_DEPTH][MAX_HEIGHT][MAX_WIDTH], int arrayX, int arrayY, int arrayZ)
 {
     for (int z = arrayZ-1; z <= arrayZ+1; ++z)
@@ -244,6 +109,7 @@ void MarkNeighbors(int active[MAX_DEPTH][MAX_HEIGHT][MAX_WIDTH], int arrayX, int
             for (int x = arrayX-1; x <= arrayX+1; ++x)
             {
                 if (x == arrayX && y == arrayY && z == arrayZ) {
+                    // that's the cube requesting neighbors
                     continue;
                 }
                 
@@ -284,6 +150,8 @@ int main()
             if (ch == '#')
             {
                 int z = 0;
+                // since coords will be negative as well, offset them so the 
+                // highest negative is still a positive array index.
                 grid[z + TURNS][y + TURNS][x + TURNS] = 1;
             }
         }
