@@ -18,6 +18,18 @@
 
 #define u64 uint64_t
 
+#define START_WIDTH 8
+#define START_HEIGHT 8
+#define START_DEPTH 1
+
+#define TURNS 6
+
+#define MAX_WIDTH (START_WIDTH + (TURNS * 2) + 2)
+#define MAX_HEIGHT (START_HEIGHT + (TURNS * 2) + 2)
+#define MAX_DEPTH (START_DEPTH + (TURNS * 2) + 2)
+
+#define TOTAL_CUBES (MAX_WIDTH * MAX_HEIGHT * MAX_DEPTH)
+
 typedef struct String
 {
     char *data;
@@ -216,49 +228,36 @@ int comp(const void *a, const void *b)
     return 0;
 }
 
-void MeAndMyNeighbors(int *grid, int size, int gridIndex, int *numActive, int dim)
-{
-    if (dim == 0)
-    {
-        MeAndMyNeighbors(grid, size, gridIndex, numActive, dim + 1);
-        MeAndMyNeighbors(grid, size, gridIndex - 1, numActive, dim + 1);
-        MeAndMyNeighbors(grid, size, gridIndex + 1, numActive, dim + 1);
-    }
-    else if (dim == 1)
-    {
-        MeAndMyNeighbors(grid, size, gridIndex, numActive, dim + 1);
-        MeAndMyNeighbors(grid, size, gridIndex - size, numActive, dim + 1);
-        MeAndMyNeighbors(grid, size, gridIndex + size, numActive, dim + 1);
-    }
-    else
-    {
-        *numActive += grid[gridIndex];
-        *numActive += grid[gridIndex - size * size];
-        *numActive += grid[gridIndex + size * size];
-    }
-}
 
-#define START_WIDTH 3
-#define START_HEIGHT 3
-#define START_DEPTH 1
-
-#define TURNS 6
-
-#define MAX_WIDTH (START_WIDTH + (TURNS * 2) + 2)
-#define MAX_HEIGHT (START_HEIGHT + (TURNS * 2) + 2)
-#define MAX_DEPTH (START_DEPTH + (TURNS * 2) + 2)
-
-#define NUM_CELLS (MAX_WIDTH * MAX_HEIGHT * MAX_DEPTH)
 
 int PosToIndex(v3 pos)
 {
     return (pos.z + TURNS) * START_WIDTH * START_HEIGHT + (pos.y + TURNS) * START_WIDTH + (pos.x + TURNS);
 }
 
+void MarkNeighbors(int active[MAX_DEPTH][MAX_HEIGHT][MAX_WIDTH], int arrayX, int arrayY, int arrayZ)
+{
+    for (int z = arrayZ-1; z <= arrayZ+1; ++z)
+    {
+        for (int y = arrayY-1; y <= arrayY+1; ++y)
+        {
+            for (int x = arrayX-1; x <= arrayX+1; ++x)
+            {
+                if (x == arrayX && y == arrayY && z == arrayZ) {
+                    continue;
+                }
+                
+                active[z][y][x] += 1;
+                
+            }
+        }
+    }
+}
+
 int main()
 {
 
-    String input = ReadFileToHeap("debug.txt");
+    String input = ReadFileToHeap("input.txt");
 
     // Time
     mach_timebase_info_data_t tb;
@@ -271,6 +270,9 @@ int main()
     SplitString(&input, &lines, '\n');
 
     int grid[MAX_DEPTH][MAX_HEIGHT][MAX_WIDTH] = {};
+    int prevGrid[MAX_DEPTH][MAX_HEIGHT][MAX_WIDTH] = {};
+
+    int numActiveNeighbors[MAX_DEPTH][MAX_HEIGHT][MAX_WIDTH] = {};
 
     // init
     for (int y = 0; y < lines.count; ++y)
@@ -289,18 +291,72 @@ int main()
 
     // update
     int turn = 0;
-    for (int z = -turn; z < START_DEPTH + turn; ++z)
+
+    while (turn < 6)
     {
-        printf("Z=%d\n\n", z);
-        for (int y = -turn; y < START_HEIGHT + turn; ++y)
+
+        printf("\n\nTURN %d\n\n", turn);
+        int totalActive = 0;
+        for (int z = 0; z < MAX_DEPTH; ++z)
         {
-            for (int x = -turn; x < START_WIDTH + turn; ++x)
+            printf("Z=%d\n\n", z);
+            for (int y = 0; y < MAX_HEIGHT; ++y)
             {
-                int state = grid[z + TURNS][y + TURNS][x + TURNS];
-                printf("%d", state);
+                for (int x = 0; x < MAX_WIDTH; ++x)
+                {
+                    int isActive = grid[z][y][x];
+                    printf("%c", isActive ? '#' : '.');
+
+                    if (isActive)
+                    {
+                        MarkNeighbors(numActiveNeighbors, x, y, z);
+                    }
+                }
+                printf("\n");
             }
-            printf("\n");
         }
+
+        for (int z = -(turn + 1); z < START_DEPTH + turn + 1; ++z)
+        {
+            printf("   Z=%d\n\n", z);
+            for (int y = -(turn + 1); y < START_HEIGHT + turn + 1; ++y)
+            {
+                for (int x = -(turn + 1); x < START_WIDTH + turn + 1; ++x)
+                {
+                    int arrayZ = z + TURNS;
+                    int arrayY = y + TURNS;
+                    int arrayX = x + TURNS;
+
+                    int isActive = grid[arrayZ][arrayY][arrayX];
+                    int numActive = numActiveNeighbors[arrayZ][arrayY][arrayX];
+
+                    if (isActive)
+                    {
+                        if (!(numActive == 2 || numActive == 3))
+                        {
+                            isActive = 0;
+                        }
+                    }
+                    else
+                    {
+                        if (numActive == 3)
+                        {
+                            isActive = 1;
+                        }
+                    }
+
+                    grid[arrayZ][arrayY][arrayX] = isActive;
+                    totalActive += isActive;
+                    printf("%c", isActive ? '#' : '.');
+                }
+                printf("\n");
+            }
+        }
+
+        printf("total active: %d.\n", totalActive);
+
+        memset(numActiveNeighbors, 0, TOTAL_CUBES * sizeof(int));
+        turn++;
     }
 
     // Time
